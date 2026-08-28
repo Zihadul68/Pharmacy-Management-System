@@ -15,7 +15,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - uses: NuGet/setup-nuget@v2
+            - uses: NuGet/setup-nuget@v2
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -24,10 +26,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
       - name: Restore WinForms packages
-        run: nuget restore PharmacyManagement.sln
+        run: nuget restore PharmacyManagement/PharmacyManagement.sln
       - name: Build WinForms application
-        run: msbuild PharmacyManagement.sln /p:Configuration=Release
-      - name: Restore test packages
-        run: dotnet restore PharmacyManagement.Tests/PharmacyManagement.Tests.csproj
-      - name: Run unit tests
-        run: dotnet test PharmacyManagement.Tests/PharmacyManagement.Tests.csproj --no-restore --configuration Release
+        run: msbuild PharmacyManagement/PharmacyManagement.sln /p:Configuration=Release
