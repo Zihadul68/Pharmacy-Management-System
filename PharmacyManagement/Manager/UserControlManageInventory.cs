@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.SqlClient;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -21,9 +22,9 @@ namespace PharmacyManagement.Manager
             this.AutoIdGenerate();
         }
 
-        public void PopulateGridView(string sql = "select * from Inventory;")
+        public void PopulateGridView()
         {
-            var ds = this.Da.ExecuteQuery(sql);
+            var ds = this.Da.ExecuteQuery("SELECT * FROM Inventory;");
 
             this.dgvManageInventory.AutoGenerateColumns = false;
             this.dgvManageInventory.DataSource = ds.Tables[0];
@@ -44,9 +45,13 @@ namespace PharmacyManagement.Manager
                     return;
                 }
 
-                var quary = "insert into Inventory values('" + this.txtMedicineName.Text + "','" + this.txtMedicineId.Text + "'," + this.txtPrice.Text + "," + this.txtQuantity.Text + ",'" + this.cmbLocation.Text + "')";
-
-                var count = this.Da.ExecuteDMLQuery(quary);
+                const string query = "INSERT INTO Inventory VALUES (@medicineName, @medicineId, @price, @quantity, @location);";
+                var count = this.Da.ExecuteDMLQuery(query,
+                    new SqlParameter("@medicineName", this.txtMedicineName.Text),
+                    new SqlParameter("@medicineId", this.txtMedicineId.Text),
+                    new SqlParameter("@price", Convert.ToInt32(this.txtPrice.Text)),
+                    new SqlParameter("@quantity", Convert.ToInt32(this.txtQuantity.Text)),
+                    new SqlParameter("@location", this.cmbLocation.Text));
 
                 if (count == 1)
                     MessageBox.Show("1 product has been added properly");
@@ -57,7 +62,8 @@ namespace PharmacyManagement.Manager
             }
             catch (Exception exc)
             {
-                MessageBox.Show("Error has occured:\n" + exc.Message);
+                Logger.Error("Unable to modify inventory.", exc);
+                MessageBox.Show("Unable to modify inventory. See the application log for details.");
             }
         }
 
@@ -76,8 +82,8 @@ namespace PharmacyManagement.Manager
         {
             try
             {
-                string sql = "select MedicineName from Inventory where MedicineName ='" + this.txtMedicineName.Text + "' ";
-                var check = Da.ExecuteQuery(sql);
+                const string sql = "SELECT MedicineName FROM Inventory WHERE MedicineName = @medicineName;";
+                var check = Da.ExecuteQuery(sql, new SqlParameter("@medicineName", this.txtMedicineName.Text));
 
                 if (check.Tables[0].Rows.Count == 1)
                 {
@@ -88,7 +94,8 @@ namespace PharmacyManagement.Manager
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error has occured" + ex.Message);
+                Logger.Error("Unable to access inventory.", ex);
+                MessageBox.Show("Unable to access inventory. See the application log for details.");
             }
             return true;
         }
@@ -113,8 +120,8 @@ namespace PharmacyManagement.Manager
                 var MedicineId = this.dgvManageInventory.CurrentRow.Cells[0].Value.ToString();
                 var MedicineName = this.dgvManageInventory.CurrentRow.Cells[1].Value.ToString();
                 //MessageBox.Show(id+title);
-                var query = "delete from Inventory where MedicineId = '" + MedicineId + "';";
-                var count = this.Da.ExecuteDMLQuery(query);
+                const string query = "DELETE FROM Inventory WHERE MedicineId = @medicineId;";
+                var count = this.Da.ExecuteDMLQuery(query, new SqlParameter("@medicineId", MedicineId));
 
                 if (count == 1)
                     MessageBox.Show(MedicineName.ToUpper() + " has been removed from the list.");
@@ -126,7 +133,8 @@ namespace PharmacyManagement.Manager
             }
             catch (Exception exc)
             {
-                MessageBox.Show("Error has occured:\n" + exc.Message);
+                Logger.Error("Unable to modify inventory.", exc);
+                MessageBox.Show("Unable to modify inventory. See the application log for details.");
             }
         }
         //Remove
@@ -136,13 +144,13 @@ namespace PharmacyManagement.Manager
         {
             try
             {
-                var updateQuary = "update Inventory set MedicineName = '" + this.txtMedicineName.Text + "'," +
-                                  "Price = " + this.txtPrice.Text + ", " +
-                                  "Quantity = '" + this.txtQuantity.Text + "', " +
-                                  "Location='" + this.cmbLocation.Text + "'" +
-                                  "where MedicineId = '" + this.txtMedicineId.Text + "';";
-
-                if (this.Da.ExecuteDMLQuery(updateQuary) == 1)
+                const string updateQuery = "UPDATE Inventory SET MedicineName = @medicineName, Price = @price, Quantity = @quantity, Location = @location WHERE MedicineId = @medicineId;";
+                if (this.Da.ExecuteDMLQuery(updateQuery,
+                    new SqlParameter("@medicineName", this.txtMedicineName.Text),
+                    new SqlParameter("@price", Convert.ToInt32(this.txtPrice.Text)),
+                    new SqlParameter("@quantity", Convert.ToInt32(this.txtQuantity.Text)),
+                    new SqlParameter("@location", this.cmbLocation.Text),
+                    new SqlParameter("@medicineId", this.txtMedicineId.Text)) == 1)
                     MessageBox.Show("Product Data has been update properly");
                 else
                 {
@@ -154,7 +162,8 @@ namespace PharmacyManagement.Manager
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error has occured" + ex.Message);
+                Logger.Error("Unable to access inventory.", ex);
+                MessageBox.Show("Unable to access inventory. See the application log for details.");
             }
             this.txtMedicineId.ReadOnly = false;
 
@@ -217,13 +226,19 @@ namespace PharmacyManagement.Manager
         {
             var query = "select max(MedicineId) from Inventory;";
             var dt = this.Da.ExecuteQueryTable(query);
-            var oldMedicineId = dt.Rows[0][0].ToString();
-            string[] temp = oldMedicineId.Split('-');
-            var num = Convert.ToInt32(temp[1]);
-            var newMedicineId = "m-" + (++num).ToString("d3");
-            
-            this.txtMedicineId.Text = newMedicineId;
-            MessageBox.Show(newMedicineId);
+            var oldMedicineId = dt.Rows.Count == 0 ? null : dt.Rows[0][0].ToString();
+            var nextNumber = 1;
+            if (!string.IsNullOrWhiteSpace(oldMedicineId))
+            {
+                var parts = oldMedicineId.Split('-');
+                int existingNumber;
+                if (parts.Length == 2 && int.TryParse(parts[1], out existingNumber))
+                {
+                    nextNumber = existingNumber + 1;
+                }
+            }
+
+            this.txtMedicineId.Text = "m-" + nextNumber.ToString("d3");
         }
 
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -37,8 +37,10 @@ namespace PharmacyManagement
                     return;
                 }
                 
-                string sql = "select u.Name,u.Role from UserInfo u, LoginInfo l where l.UniqueId = u.Id and  l.UserId='" + this.txtUserId.Text + "' and l.Password = '" + txtPassword.Text + "';";
-                var ds = this.Da.ExecuteQuery(sql);
+                const string sql = "SELECT u.Name, u.Role FROM UserInfo u INNER JOIN LoginInfo l ON l.UniqueId = u.Id WHERE l.UserId = @userId AND l.Password = @password;";
+                var ds = this.Da.ExecuteQuery(sql,
+                    new SqlParameter("@userId", this.txtUserId.Text),
+                    new SqlParameter("@password", this.txtPassword.Text));
 
 
 
@@ -78,7 +80,8 @@ namespace PharmacyManagement
             }
             catch (Exception exc)
             {
-                MessageBox.Show("An error has occured please check: " + exc.Message);
+                Logger.Error("Unable to authenticate user.", exc);
+                MessageBox.Show("Unable to sign in. See the application log for details.");
 
             }
 

@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Data.SqlClient;
 using System.Drawing.Text;
 using System.Linq;
 using System.Text;
@@ -36,8 +37,8 @@ namespace PharmacyManagement
         {
             try
             {
-                var data = "select u.Name,u.Email,u.Address,u.JoiningDate,l.UserId,l.Password from UserInfo u,LoginInfo l where u.Id = l.UniqueId and l.UserId = '" + UserId + "';";
-                var ds = this.Da.ExecuteQuery(data);
+                const string data = "SELECT u.Name, u.Email, u.Address, u.JoiningDate, l.UserId, l.Password FROM UserInfo u INNER JOIN LoginInfo l ON u.Id = l.UniqueId WHERE l.UserId = @userId;";
+                var ds = this.Da.ExecuteQuery(data, new SqlParameter("@userId", UserId));
                 this.txtMName.Text = ds.Tables[0].Rows[0][0].ToString();
 
                 this.txtMEmail.Text = ds.Tables[0].Rows[0][1].ToString();
@@ -53,7 +54,8 @@ namespace PharmacyManagement
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error has occured" + ex.Message);
+                Logger.Error("Unable to update manager profile.", ex);
+                MessageBox.Show("Unable to update manager profile. See the application log for details.");
             }
             
           
@@ -65,17 +67,22 @@ namespace PharmacyManagement
 
             try
             {
-                var data = "select u.UserID from UserInfoo u,LoginInfoo l where u.Id = l.UniqueId and l.UserId = '" + UserId + "'";
-                var ds = this.Da.ExecuteQuery(data);
+                const string data = "SELECT u.UserID FROM UserInfoo u INNER JOIN LoginInfoo l ON u.Id = l.UniqueId WHERE l.UserId = @userId;";
+                var ds = this.Da.ExecuteQuery(data, new SqlParameter("@userId", UserId));
                 var UniqueId = ds.Tables[0].Rows[0][0].ToString();
 
-                var updateQuary = "update UserInfoo set Name = '" + this.txtMName.Text + "'," +
-                                  "Email = '" + this.txtMEmail.Text + "',Address = " + this.txtMAddress.Text + ", " +
-                                  "JoiningDate = '" + this.dtpMJoiningDate.Text + "' " +
-                                  "where UserID = '" + UniqueId + "';";
-                var updateQuary2 = "update LoginInfoo set Password = '" + this.txtMPassword.Text + "' where UserId = '" + UserId + "'";
+                const string updateUser = "UPDATE UserInfoo SET Name = @name, Email = @email, Address = @address, JoiningDate = @joiningDate WHERE UserID = @uniqueId;";
+                const string updateLogin = "UPDATE LoginInfoo SET Password = @password WHERE UserId = @userId;";
 
-                if (this.Da.ExecuteDMLQuery(updateQuary) == 1 && this.Da.ExecuteDMLQuery(updateQuary2) == 1)
+                if (this.Da.ExecuteDMLQuery(updateUser,
+                    new SqlParameter("@name", this.txtMName.Text),
+                    new SqlParameter("@email", this.txtMEmail.Text),
+                    new SqlParameter("@address", this.txtMAddress.Text),
+                    new SqlParameter("@joiningDate", this.dtpMJoiningDate.Value),
+                    new SqlParameter("@uniqueId", UniqueId)) == 1 &&
+                    this.Da.ExecuteDMLQuery(updateLogin,
+                    new SqlParameter("@password", this.txtMPassword.Text),
+                    new SqlParameter("@userId", UserId)) == 1)
                     MessageBox.Show("Data has been update properly");
                 else
                 {
@@ -85,7 +92,8 @@ namespace PharmacyManagement
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error has occured" + ex.Message);
+                Logger.Error("Unable to update manager profile.", ex);
+                MessageBox.Show("Unable to update manager profile. See the application log for details.");
             }
            
         }

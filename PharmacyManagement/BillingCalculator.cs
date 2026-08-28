@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 
 namespace PharmacyManagement
 {
+    /// <summary>Contains billing rules that can be exercised independently of the WinForms UI.</summary>
     public static class BillingCalculator
     {
         public static int CalculateLineTotal(int quantity, int unitPrice)

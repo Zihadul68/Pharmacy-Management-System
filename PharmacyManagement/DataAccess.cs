@@ -1,81 +1,70 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data.SqlClient;
+using System;
 using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Data.SqlClient;
 
 namespace PharmacyManagement
 {
-    internal class DataAccess
+    internal class DataAccess : IDisposable
     {
-        private SqlConnection sqlcon;
-        public SqlConnection Sqlcon
-        {
-            get { return this.sqlcon; }
-            set { this.sqlcon = value; }
-        }
-
-        private SqlCommand sqlcom;
-        public SqlCommand Sqlcom
-        {
-            get { return this.sqlcom; }
-            set { this.sqlcom = value; }
-        }
-
-        private SqlDataAdapter sda;
-        public SqlDataAdapter Sda
-        {
-            get { return this.sda; }
-            set { this.sda = value; }
-        }
-
-        private DataSet ds;
-        public DataSet Ds
-        {
-            get { return this.ds; }
-            set { this.ds = value; }
-        }
-
-        //internal DataTable dt;
+        private readonly SqlConnection sqlcon;
 
         public DataAccess()
         {
-            this.Sqlcon = new SqlConnection(@"Data Source=DESKTOP-2KF12JE\SQLEXPRESS;Initial Catalog=PharmacyManagement;Persist Security Info=True;User ID=sa;Password=MSsql987@GG;");
-            Sqlcon.Open();
+            var connectionString = Environment.GetEnvironmentVariable("PHARMACY_CONNECTION_STRING");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "PHARMACY_CONNECTION_STRING must be set before starting Pharmacy Management.");
+            }
+
+            sqlcon = new SqlConnection(connectionString);
+            sqlcon.Open();
         }
 
-        private void QueryText(string query)
+        public DataSet ExecuteQuery(string sql, params SqlParameter[] parameters)
         {
-            this.Sqlcom = new SqlCommand(query, this.Sqlcon);
+            using (var command = CreateCommand(sql, parameters))
+            using (var adapter = new SqlDataAdapter(command))
+            {
+                var result = new DataSet();
+                adapter.Fill(result);
+                return result;
+            }
         }
 
-        public DataSet ExecuteQuery(string sql)
+        public DataTable ExecuteQueryTable(string sql, params SqlParameter[] parameters)
         {
-            this.Sqlcom = new SqlCommand(sql, this.Sqlcon);//this.QueryText(sql);
-            this.Sda = new SqlDataAdapter(this.Sqlcom);
-            this.Ds = new DataSet();
-            this.Sda.Fill(this.Ds);
-            return Ds;
+            var result = ExecuteQuery(sql, parameters);
+            return result.Tables.Count == 0 ? new DataTable() : result.Tables[0];
         }
 
-        public DataTable ExecuteQueryTable(string sql)
+        public int ExecuteDMLQuery(string sql, params SqlParameter[] parameters)
         {
-            this.Sqlcom = new SqlCommand(sql, this.Sqlcon);//this.QueryText(sql);
-            this.Sda = new SqlDataAdapter(this.Sqlcom);
-            this.Ds = new DataSet();
-            this.Sda.Fill(this.Ds);
-            return Ds.Tables[0];
+            using (var command = CreateCommand(sql, parameters))
+            {
+                return command.ExecuteNonQuery();
+            }
         }
 
-        public int ExecuteDMLQuery(string sql)
+        private SqlCommand CreateCommand(string sql, SqlParameter[] parameters)
         {
-            this.Sqlcom = new SqlCommand(sql, this.Sqlcon);//this.QueryText(sql);
-            int u = this.Sqlcom.ExecuteNonQuery();
-            return u;
+            if (string.IsNullOrWhiteSpace(sql))
+            {
+                throw new ArgumentException("A SQL command is required.", nameof(sql));
+            }
+
+            var command = new SqlCommand(sql, sqlcon);
+            if (parameters != null && parameters.Length > 0)
+            {
+                command.Parameters.AddRange(parameters);
+            }
+
+            return command;
         }
 
+        public void Dispose()
+        {
+            sqlcon.Dispose();
+        }
     }
 }
-
