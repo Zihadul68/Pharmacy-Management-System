@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.SqlClient;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -21,9 +22,9 @@ namespace PharmacyManagement.Pharmacist
 
         }
 
-        public void PopulateGridView(string sql = "select * from Inventory;")
+        public void PopulateGridView(string sql = "SELECT * FROM Inventory;", params SqlParameter[] parameters)
         {
-            var ds = this.Da.ExecuteQuery(sql);
+            var ds = this.Da.ExecuteQuery(sql, parameters);
 
             this.dgvPharmacistInventory.AutoGenerateColumns = false;
             this.dgvPharmacistInventory.DataSource = ds.Tables[0];
@@ -37,20 +38,20 @@ namespace PharmacyManagement.Pharmacist
 
         private void txtAutoSearch_TextChanged(object sender, EventArgs e)
         {
-            var sql = "select* from Inventory Where MedicineName like'" + this.txtAutoSearch.Text + "%'or Location like'" + this.txtAutoSearch.Text + "%';";
-            this.PopulateGridView(sql);
+            const string sql = "SELECT * FROM Inventory WHERE MedicineName LIKE @search OR Location LIKE @search;";
+            this.PopulateGridView(sql, new SqlParameter("@search", this.txtAutoSearch.Text + "%"));
         }
 
         private void btnSearch_Click_1(object sender, EventArgs e)
         {
-            var sql = "select * from Inventory where MedicineName = '" + this.txtSearch.Text + "';";
-            this.PopulateGridView();
+            const string sql = "SELECT * FROM Inventory WHERE MedicineName = @medicineName;";
+            this.PopulateGridView(sql, new SqlParameter("@medicineName", this.txtSearch.Text));
         }
 
         private void txtSearch_TextChanged(object sender, EventArgs e)
         {
-            string sql = @"select* from Inventory where MedicineName = '" + this.txtSearch.Text + "'; ";
-            this.PopulateGridView(sql);
+            const string sql = "SELECT * FROM Inventory WHERE MedicineName = @medicineName;";
+            this.PopulateGridView(sql, new SqlParameter("@medicineName", this.txtSearch.Text));
         }
     }
 }

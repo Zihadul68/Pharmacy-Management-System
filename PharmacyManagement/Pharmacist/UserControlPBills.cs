@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Data.SqlClient;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -16,9 +17,7 @@ namespace PharmacyManagement.Pharmacist
         int priceTotal = 0;
         int Price = 0;
         int Quantity = 0;
-        int q = 0;
         private string userName { get; set; }
-        DateTime DateTime = DateTime.Now;
         private DataAccess Da { get; set; }
 
         public UserControlPBills()
@@ -32,9 +31,9 @@ namespace PharmacyManagement.Pharmacist
         {
             this.userName = userName;
         }
-        public void PopulateGidView(string sql = "select * from Inventory;")
+        public void PopulateGidView()
         {
-            var ds = this.Da.ExecuteQuery(sql);
+            var ds = this.Da.ExecuteQuery("SELECT * FROM Inventory;");
 
             this.dgvMedicineInfo.AutoGenerateColumns = false;
             this.dgvMedicineInfo.DataSource = ds.Tables[0];
@@ -73,17 +72,15 @@ namespace PharmacyManagement.Pharmacist
                 Price = Convert.ToInt32(txtPrice.Text);
 
                 // Ensure requested quantity is available
-                if (Quantity > tableQuantity)
+                if (!BillingCalculator.CanFulfil(Quantity, tableQuantity))
                 {
                     MessageBox.Show("Not enough stock available!");
                     return;
                 }
 
                 // Calculate the total price
-                CalculatePrice();
+                priceTotal = BillingCalculator.CalculateLineTotal(Quantity, Price);
 
-                // Debugging check (remove after verifying)
-                Console.WriteLine($"Medicine: {txtMedicineName.Text}, Quantity: {Quantity}, Price: {Price}, Total: {priceTotal}");
 
                 DataGridViewRow row = new DataGridViewRow();
                 row.CreateCells(dgvCartInfo);
@@ -102,15 +99,11 @@ namespace PharmacyManagement.Pharmacist
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error Occurred: " + ex.Message);
+                Logger.Error("Unable to add medicine to the cart.", ex);
+                MessageBox.Show("Unable to add medicine to the cart. See the application log for details.");
             }
         }
 
-
-        private void CalculatePrice(int Quantity, int Price)
-        {
-            priceTotal = Quantity * Price;
-        }
 
         private void btnBill_Click(object sender, EventArgs e)
         {
@@ -136,17 +129,15 @@ namespace PharmacyManagement.Pharmacist
                 Price = Convert.ToInt32(txtPrice.Text);
 
                 // Check if requested quantity is available
-                if (Quantity > tableQuantity)
+                if (!BillingCalculator.CanFulfil(Quantity, tableQuantity))
                 {
                     MessageBox.Show("Not enough stock available!");
                     return;
                 }
 
                 // Calculate total price
-                CalculatePrice();
+                priceTotal = BillingCalculator.CalculateLineTotal(Quantity, Price);
 
-                // Debugging check
-                Console.WriteLine($"Medicine: {txtMedicineName.Text}, Quantity: {Quantity}, Price: {Price}, Total: {priceTotal}");
 
                 // Add to cart
                 dgvCartInfo.Rows.Add(txtMedicineName.Text, Quantity, priceTotal);
@@ -160,24 +151,12 @@ namespace PharmacyManagement.Pharmacist
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error Occurred: " + ex.Message);
+                Logger.Error("Unable to add medicine to the cart.", ex);
+                MessageBox.Show("Unable to add medicine to the cart. See the application log for details.");
             }
         }
 
 
-
-        private void CalculatePrice()
-        {
-            // Ensure values are valid before calculation
-            if (Quantity > 0 && Price > 0)
-            {
-                priceTotal = Quantity * Price;
-            }
-            else
-            {
-                priceTotal = 0; 
-            }
-        }
 
         private bool IsValidTOAdd()
         {
@@ -213,9 +192,13 @@ namespace PharmacyManagement.Pharmacist
                     MessageBox.Show("Please Fill Customer Information");
                     return;
                 }
-                var query = "insert into RecordTable values('" + this.txtCustomerName.Text + "','" + this.txtCustomerPhnNo.Text + "', '" + userName + "','" + DateTime + "'," + this.lblTotalBill.Text + ");";
-
-                var count = this.Da.ExecuteDMLQuery(query);
+                const string query = "INSERT INTO RecordTable VALUES (@customerName, @customerPhone, @userName, @orderDate, @total);";
+                var count = this.Da.ExecuteDMLQuery(query,
+                    new SqlParameter("@customerName", this.txtCustomerName.Text),
+                    new SqlParameter("@customerPhone", this.txtCustomerPhnNo.Text),
+                    new SqlParameter("@userName", (object)userName ?? DBNull.Value),
+                    new SqlParameter("@orderDate", DateTime.Now),
+                    new SqlParameter("@total", Convert.ToInt32(this.lblTotalBill.Text)));
 
 
                 if (count == 1)
@@ -228,7 +211,7 @@ namespace PharmacyManagement.Pharmacist
                     this.txtCustomerName.Clear();
 
                 }
-                int tableQuantity = Convert.ToInt32(this.dgvMedicineInfo.CurrentRow.Cells[4].Value.ToString());
+                int tableQuantity = Convert.ToInt32(this.dgvMedicineInfo.CurrentRow.Cells[2].Value.ToString());
                 string id = this.dgvMedicineInfo.CurrentRow.Cells[1].Value.ToString();
 
                 if (tableQuantity == 0)
@@ -237,13 +220,16 @@ namespace PharmacyManagement.Pharmacist
                     return;
                 }
                 int finalQuantity = tableQuantity - Quantity;
-                var updateQuary = "update Inventory set Quantity = " + finalQuantity + " where Id = '" + id + "';";
-                this.Da.ExecuteDMLQuery(updateQuary);
+                const string updateQuery = "UPDATE Inventory SET Quantity = @quantity WHERE MedicineId = @id;";
+                this.Da.ExecuteDMLQuery(updateQuery,
+                    new SqlParameter("@quantity", finalQuantity),
+                    new SqlParameter("@id", id));
                 this.PopulateGidView();
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error has occured:\n" + ex.Message);
+                Logger.Error("Unable to confirm order.", ex);
+                MessageBox.Show("Unable to confirm order. See the application log for details.");
             }
 
 

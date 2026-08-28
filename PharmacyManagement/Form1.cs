@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -20,7 +20,13 @@ namespace MediCare
 
         private void btnShow_Click(object sender, EventArgs e)
         {
-            SqlConnection sqlcon = new SqlConnection(@"Data Source=DESKTOP-2KF12JE\SQLEXPRESS;Initial Catalog=MediCare;User ID=sa;Password=P@$$w0rd");
+            var connectionString = Environment.GetEnvironmentVariable("PHARMACY_CONNECTION_STRING");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("PHARMACY_CONNECTION_STRING must be set before starting Pharmacy Management.");
+            }
+
+            SqlConnection sqlcon = new SqlConnection(connectionString);
             sqlcon.Open();
             SqlCommand sqlcom = new SqlCommand("select * from UserInfo;", sqlcon);
             SqlDataAdapter sda = new SqlDataAdapter(sqlcom);

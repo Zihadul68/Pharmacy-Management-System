@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Do not store credentials in App.config. Set PHARMACY_CONNECTION_STRING in the
+  process environment before launching the application. Example (PowerShell):
+  $env:PHARMACY_CONNECTION_STRING = "Data Source=localhost\\SQLEXPRESS;Initial Catalog=PharmacyManagement;Integrated Security=True;Encrypt=True;TrustServerCertificate=True"
+-->
+<configuration>
+  <startup>
+    <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.7.2" />
+  </startup>
+</configuration>
