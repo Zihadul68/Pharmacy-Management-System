@@ -1,12 +1,3 @@
-name: Build and test
-
-on:
-  push:
-  pull_request:
-
-permissions:
-  contents: read
-
 jobs:
   build-and-test:
     runs-on: windows-latest
@@ -16,16 +7,19 @@ jobs:
         with:
           dotnet-version: 8.0.x
       - uses: NuGet/setup-nuget@v2
-      - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - uses: microsoft/setup-msbuild@v2  # ADD THIS LINE
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/packages.config') }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**packages.config') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
       - name: Restore WinForms packages
-        run: nuget restore PharmacyManagement/PharmacyManagement.sln
+        run: nuget restore PharmacyManagement.sln
       - name: Build WinForms application
-        run: msbuild PharmacyManagement/PharmacyManagement.sln /p:Configuration=Release
+        run: msbuild PharmacyManagement.sln /p:Configuration=Release
+      - name: Restore test packages
+        run: dotnet restore PharmacyManagement.Tests/PharmacyManagement.Tests.csproj
+      - name: Run unit tests
+        run: dotnet test PharmacyManagement.Tests/PharmacyManagement.Tests.csproj --no-restore --configuration Release
